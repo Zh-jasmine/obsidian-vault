@@ -42,7 +42,7 @@
 | Test | reg_base_test.sv | 创建 env，控制仿真起止，启动 sequence |
 | Test Top | test_top.sv | 生成时钟复位，实例化 DUT 和 interface，启动 UVM |
 
-验证环境的数据流分为写路径和读路径两条。写路径从 sequence 产生写 transaction 开始，经 sequencer 转发给 driver，driver 驱动到 interface 后 DUT 存储数据。同时 monitor 从 interface 采样写信号，重建出 transaction 并通过分析端口发送给 scoreboard 的记录通道。读路径由 sequence 产生读 transaction，driver 驱动读地址后 DUT 输出读数据，driver 在下一个时钟沿采样读数据写回 transaction，然后直接汇报给 scoreboard 的比对通道。
+验证环境的数据流分为写路径和读路径两条。写路径从 sequence 产生写 transaction 开始，经 sequencer 转发给 driver，driver 驱动到 interface 后 ，DUT 存储数据。同时 monitor 从 interface 采样写信号，重建出 transaction 并通过分析端口发送给 scoreboard 的记录通道。读路径由 sequence 产生读 transaction，driver 驱动读地址后，DUT 输出读数据，driver 在下一个时钟沿采样读数据写回 transaction，然后直接汇报给 scoreboard 的比对通道。
 
 项目文件按目录组织。`rtl/` 目录存放待验证的 RTL 代码，`tb/` 目录存放信号接口和仿真顶层，`verif/` 目录存放所有 UVM 验证组件，根目录的 Makefile 用于编译和运行。
 
@@ -70,7 +70,7 @@ module reg_module (
             rvalid <= 1'b0;
         else
             rvalid <= 1'b1;
-        if (write) mem[addr] <= wdata;
+        if (write) mem[addr] <= wdata;//dut收到写信号，就把写数据输出到对应地址的寄存器
     end
 endmodule
 ```
