@@ -228,7 +228,7 @@ endtask
 
 读操作将 `vif.rdata` 的采样值写回 `tr.data`。这意味着同一个 transaction 对象在发送给 driver 时，`data` 字段保存的是写入数据（写操作）或无关值（读操作），在 driver 完成处理后，`data` 字段变成了读回的实际数据。这种方式使得 scoreboard 能够通过一个 transaction 同时获得读操作的地址和实际读回的数据。
 
-`drive_one` 的参数 `reg_transaction tr` 在 SystemVerilog 中是一个 class 类型的句柄参数，传递的是对象的引用而不是对象的副本。driver 内部的 `tr.addr` 和 `tr.data` 访问的是与 sequence 中同一个 transaction 对象的字段。读操作分支中 `tr.data = vif.rdata` 将读回的数据写入这个对象，sequence 在 `finish_item` 之后通过 `data = tr.data` 读取到的就是 driver 填入的结果。这种引用传递机制是 UVM 中 sequence 和 driver 之间数据返回的基础。
+`drive_one` 的参数 `reg_transaction tr` 在 SystemVerilog 中是一个 class 类型的句柄参数，传递的是对象的引用而不是对象的副本。读操作分支中 `tr.data = vif.rdata` 将读回的数据写入这个对象tr的date字段，sequence 在 `finish_item` 之后通过 `data = tr.data` 读取到的就是 driver 填入的结果。这种引用传递机制是 UVM 中 sequence 和 driver 之间数据返回的基础。
 
 ## 七、信号采样——Monitor
 
