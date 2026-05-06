@@ -93,6 +93,8 @@ endmodule
 
 `addr` 和 `write` 由 driver 驱动，`wdata` 在写操作时由 driver 驱动，`rdata` 由 DUT 驱动，monitor 采样 `write` 和 `wdata`。clk 由 test top 生成，rst_n 在仿真开始时由 test top 控制。
 
+`rvalid` 在标准协议中用于指示读数据有效——monitor 看到 `rvalid=1` 就去采样 `rdata`。但这个 DUT 的 `rvalid` 在复位结束后始终为高，相当于永远说"数据有效"，失去了握手意义。这就是后文 monitor 无法靠 rvalid 区分读状态、转而让 driver 汇报读结果的原因。
+
 ## 三、总线时序
 
 [⬆ 返回目录](#目录)
@@ -304,6 +306,8 @@ endclass
 
 Sequencer 的父类实现了所有必要的功能，包括 get_next_item、item_done、仲裁等。验证工程师只需要声明参数化的 `uvm_sequencer #(transaction_type)` 即可。
 
+`new(string name, uvm_component parent)` 的签名是 UVM 组件的规定。`name` 是组件在 UVM 树中的名字（打印日志和 config_db 路径时使用），`parent` 是父节点指针。这两个参数由 `type_id::create("sqr", this)` 在实例化时传入，验证工程师只需按这个固定格式写构造函数。
+
 ## 九、验证场景——Sequence
 
 [⬆ 返回目录](#目录)
@@ -461,6 +465,8 @@ endfunction
 
 这两条连接定义了整个验证环境的数据流。Monitor 采到的写操作通过 `mon_fifo` 进入 scoreboard 的记录逻辑，driver 汇报的读结果通过 `drv_fifo` 进入 scoreboard 的比对逻辑。
 
+这里使用的 TLM（Transaction-Level Modeling）是 UVM 组件之间传输 transaction 的一套接口标准。核心模式是生产者通过 analysis port 发出 transaction，消费者通过 analysis FIFO 接收。Agent 中的 `drv_ap` 是 `uvm_analysis_port #(reg_transaction)` 类型，它在 connect_phase 中被连接到 driver 内部的同名端口，然后通过 env 被连接到 scoreboard 的 `drv_fifo`。
+
 ## 十三、测试用例——Test
 
 [⬆ 返回目录](#目录)
@@ -486,6 +492,8 @@ task run_phase(uvm_phase phase);
     phase.drop_objection(this);
 endtask
 ```
+
+`seq.start(env.agt.sqr)` 中的 `seq` 是一个 sequence 对象（如 `reg_write_read_seq`），`start` 是 UVM 内建方法，将其挂载到指定的 sequencer 上执行。`env.agt.sqr` 是层级路径：env → agent → sequencer。Sequence 必须挂载到 sequencer 才能通过 `start_item/finish_item` 与 driver 握手。
 
 ### 测试用例组织
 
@@ -537,13 +545,20 @@ end
 
 ### config_db 设置
 
-`uvm_config_db` 是 UVM 中组件间共享配置的全局数据库。这里将 `virtual reg_if` 指针存入 config_db，路径为 `"uvm_test_top.env.agt.*"`。
+`uvm_config_db` 是 UVM 中组件间共享配置的全局数据库。这里将 `virtual reg_if` 指针存入 config_db，供 UVM 组件的 `build_phase` 中使用 `::get` 取出。
 
 ```systemverilog
 uvm_config_db #(virtual reg_if)::set(null, "uvm_test_top.env.agt.*", "vif", vif);
 ```
 
-路径字符串 `"uvm_test_top.env.agt.*"` 中的通配符 `*` 表示匹配 agent 下所有层次的组件。这相当于 driver 和 monitor 都可以通过相同的字符串键 `"vif"` 获取同一个 interface 指针。
+逐段拆解：`uvm_config_db` 是全局数据库；`#(virtual reg_if)` 指定存储的类型是虚接口指针；`::set` 表示写入（`::get` 表示读出）；`null` 是不限上下文；`"uvm_test_top.env.agt.*"` 是路径字符串，`*` 通配符匹配 agent 下所有子组件（driver 和 monitor 都能看到）；`"vif"` 是键名，使用 `::get` 时传同一个键就能取到；最后的 `vif` 是要存入的值。
+
+Driver 中取出的代码：
+```systemverilog
+if (!uvm_config_db #(virtual reg_if)::get(this, "", "vif", vif))
+    `uvm_error("DRV", "获取 vif 失败")
+```
+`::get` 的路径从 `this`（driver 自身）的层次自动推导，因此第二个参数传空字符串即可。
 
 ## 十五、编译脚本——Makefile
 
