@@ -3,22 +3,21 @@
 - [[#一、验证环境总览]]
 - [[#二、信号说明]]
 - [[#三、总线时序]]
-- [[#四、数据载体——Transaction]]
-- [[#五、信号连接——Interface]]
-- [[#六、时序驱动——Driver]]
-- [[#七、信号采样——Monitor]]
-- [[#八、激励调度——Sequencer]]
-- [[#九、验证场景——Sequence]]
-- [[#十、结果比对——Scoreboard]]
-- [[#十一、组件打包——Agent]]
-- [[#十二、环境组装——Env]]
-- [[#十三、测试用例——Test]]
-- [[#十四、仿真顶层——Test Top]]
+- [[#四、仿真顶层——Test Top]]
+- [[#五、测试用例——Test]]
+- [[#六、环境组装——Env]]
+- [[#七、组件打包——Agent]]
+- [[#八、数据载体——Transaction]]
+- [[#九、信号连接——Interface]]
+- [[#十、激励调度——Sequencer]]
+- [[#十一、验证场景——Sequence]]
+- [[#十二、时序驱动——Driver]]
+- [[#十三、信号采样——Monitor]]
+- [[#十四、结果比对——Scoreboard]]
 - [[#十五、编译脚本——Makefile]]
 - [[#十六、仿真运行与结果解读]]
 - [[#十七、数据流总览]]
 - [[#十八、常见编译与运行错误]]
-
 
 ## 一、验证环境总览
 
@@ -107,7 +106,156 @@ endmodule
 
 所有信号变化均以时钟上升沿为基准。写操作涉及 addr、wdata、write 三个信号的驱动，读操作只驱动 addr 和 write，然后由 driver 采样 rdata。
 
-## 四、数据载体——Transaction
+## 四、仿真顶层——Test Top
+
+[⬆ 返回目录](#目录)
+
+文件位置：`tb/test_top.sv`
+
+### 这一层加了什么
+
+Test top 是一个 Verilog module（非 UVM 组件），是整个仿真的入口。它生成时钟和复位信号，实例化 DUT 和 interface，将 interface 通过 `uvm_config_db` 传递给 UVM 环境，最后调用 `run_test()` 启动 UVM。
+
+### 为什么需要单独分出这一层
+
+UVM 是一个基于 SystemVerilog 的类库，它无法生成硬件信号（时钟、复位）或实例化 DUT。这些硬件级的操作必须在 module 中完成。Test top 是连接硬件世界和 UVM 软件世界的桥梁。
+
+### 时钟与复位
+
+时钟周期设为 100MHz（每个 `#5` 切换一次）。`rst_n` 在仿真开始时保持低电平 5 个时钟周期，确保 DUT 内部状态正确复位后再拉高。
+
+```systemverilog
+bit clk;
+initial forever #5 clk = ~clk;  // 100MHz
+
+initial begin
+    rst_n = 0;
+    repeat (5) @(posedge clk);
+    rst_n = 1;
+end
+```
+
+### config_db 设置
+
+`uvm_config_db` 是 UVM 中组件间共享配置的全局数据库。这里将 `virtual reg_if` 指针存入 config_db，供 UVM 组件的 `build_phase` 中使用 `::get` 取出。
+
+```systemverilog
+uvm_config_db #(virtual reg_if)::set(null, "uvm_test_top.env.agt.*", "vif", vif);
+```
+
+逐段拆解：`uvm_config_db` 是全局数据库；`#(virtual reg_if)` 指定存储的类型是虚接口指针；`::set` 表示写入（`::get` 表示读出）；`null` 是不限上下文；`"uvm_test_top.env.agt.*"` 是路径字符串，`*` 通配符匹配 agent 下所有子组件（driver 和 monitor 都能看到）；`"vif"` 是键名，使用 `::get` 时传同一个键就能取到；最后的 `vif` 是要存入的值。
+
+Driver 中取出的代码：
+```systemverilog
+if (!uvm_config_db #(virtual reg_if)::get(this, "", "vif", vif))
+    `uvm_error("DRV", "获取 vif 失败")
+```
+`::get` 的路径从 `this`（driver 自身）的层次自动推导，因此第二个参数传空字符串即可。
+
+## 五、测试用例——Test
+
+[⬆ 返回目录](#目录)
+
+文件位置：`verif/reg_base_test.sv`
+
+### 这一层加了什么
+
+Test 是 UVM 验证层次的顶层组件，继承自 `uvm_test`。它负责创建 env、控制仿真的开始和结束、以及启动 sequence。
+
+### 为什么需要单独分出这一层
+
+不同的测试场景（写后读测试、边界测试、随机测试等）共享同一个 env 和 agent，但使用不同的 sequence 和配置。通过继承一个基类 test 并在子类中更换 sequence，可以在不修改 env 的情况下运行不同的测试。
+
+### Objection 机制
+
+UVM 的 objection 机制用于控制仿真何时结束。当 test 的 `run_phase` 中 raise objection 时，仿真器知道当前还有未完成的工作。当 sequence 执行完毕，test drop objection 后，仿真器确认所有工作已完成，结束 run phase 进入后续的检查阶段。
+
+```systemverilog
+task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    seq.start(env.agt.sqr);
+    phase.drop_objection(this);
+endtask
+```
+
+`seq.start(env.agt.sqr)` 中的 `seq` 是一个 sequence 对象（如 `reg_write_read_seq`），`start` 是 UVM 内建方法，将其挂载到指定的 sequencer 上执行。`env.agt.sqr` 是层级路径：env → agent → sequencer。Sequence 必须挂载到 sequencer 才能通过 `start_item/finish_item` 与 driver 握手。
+
+### 测试用例组织
+
+```systemverilog
+// 基类 test：创建 env
+class reg_base_test extends uvm_test;
+    reg_env env;
+endclass
+
+// 写后读测试：使用 reg_write_read_seq
+class reg_write_read_test extends reg_base_test;
+    // run_phase 中启动 reg_write_read_seq
+endclass
+
+// 边界测试：使用 reg_boundary_seq
+class reg_boundary_test extends reg_base_test;
+    // run_phase 中启动 reg_boundary_seq
+endclass
+```
+
+## 六、环境组装——Env
+
+[⬆ 返回目录](#目录)
+
+文件位置：`verif/reg_env.sv`
+
+### 这一层加了什么
+
+Env 是整个验证环境的顶层容器，它实例化 agent 和 scoreboard，并将它们连接起来形成完整的数据通路。
+
+### 为什么需要单独分出这一层
+
+一个验证环境通常包含多个 agent（对应多个接口）和一个 scoreboard。Env 层将这些组件装配成一个整体，test 只需要实例化 env 即可获得完整的验证环境，不需要关心组件间的连接细节。
+
+### 数据路径连接
+
+```systemverilog
+function void connect_phase(uvm_phase phase);
+    // monitor 的写操作 → scoreboard 的记录通道
+    agt.mon.ap.connect(scb.mon_fifo.analysis_export);
+    // driver 的读结果 → scoreboard 的比对通道
+    agt.drv_ap.connect(scb.drv_fifo.analysis_export);
+endfunction
+```
+
+这两条连接定义了整个验证环境的数据流。Monitor 采到的写操作通过 `mon_fifo` 进入 scoreboard 的记录逻辑，driver 汇报的读结果通过 `drv_fifo` 进入 scoreboard 的比对逻辑。
+
+这里使用的 TLM（Transaction-Level Modeling）是 UVM 组件之间传输 transaction 的一套接口标准。核心模式是生产者通过 analysis port 发出 transaction，消费者通过 analysis FIFO 接收。Agent 中的 `drv_ap` 是 `uvm_analysis_port #(reg_transaction)` 类型，它在 connect_phase 中被连接到 driver 内部的同名端口，然后通过 env 被连接到 scoreboard 的 `drv_fifo`。
+
+## 七、组件打包——Agent
+
+[⬆ 返回目录](#目录)
+
+文件位置：`verif/reg_agent.sv`
+
+### 这一层加了什么
+
+Agent 将 driver、monitor 和 sequencer 这三个与同一套信号相关的组件打包在一起。它对上层的 env 隐藏了内部组件的创建和连接细节。
+
+### 为什么需要单独分出这一层
+
+在复杂的芯片验证项目中，同一个总线协议（如 AXI、APB）可能在多个模块中使用。将 driver、monitor、sequencer 打包成 agent 后，env 可以直接实例化这个 agent 多次，而不需要为每个模块重复创建和连接这些组件。
+
+Agent 有两种工作模式。`UVM_ACTIVE` 模式包含 driver 和 sequencer（可发送激励），`UVM_PASSIVE` 模式只包含 monitor（仅观察）。对于只需要监测信号但不驱动信号的场景（比如验证环境中的从机接口），passive 模式非常有用。
+
+### 端口透传
+
+Agent 内部持有一个 `uvm_analysis_port #(reg_transaction)` 类型的 `drv_ap`，它连接了 driver 内部的 `drv_ap` 端口。这样 scoreboard 可以通过 env 访问 agent 暴露的这个端口来接收读数据。
+
+```systemverilog
+function void connect_phase(uvm_phase phase);
+    drv.seq_item_port.connect(sqr.seq_item_export);
+    drv.drv_ap.connect(drv_ap);
+endfunction
+```
+
+## 八、数据载体——Transaction
 
 [⬆ 返回目录](#目录)
 
@@ -150,7 +298,7 @@ class reg_transaction extends uvm_sequence_item;
 
 由于 class 句柄的传参语义是引用传递而不是值传递，将一个句柄赋值给另一个变量或作为参数传入 task 时，传递的是对象的地址而不是对象的副本。多个句柄可以指向同一个对象，通过任何一个句柄修改对象的字段，其他句柄都能看到修改后的值。这一特性在 UVM 的数据流中反复出现——sequence 创建 transaction 后传递给 driver，driver 修改 transaction 的内容（如读回数据），sequence 在 driver 完成后读取修改后的结果。
 
-## 五、信号连接——Interface
+## 九、信号连接——Interface
 
 [⬆ 返回目录](#目录)
 
@@ -179,107 +327,7 @@ interface reg_if (input bit clk);
 endinterface
 ```
 
-## 六、时序驱动——Driver
-
-[⬆ 返回目录](#目录)
-
-文件位置：`verif/reg_driver.sv`
-
-### 这一层加了什么
-
-Driver 继承自 `uvm_driver #(reg_transaction)`，负责从 sequencer 接收 transaction，按照 DUT 的总线时序驱动到 interface 上。它把 transaction 层面的数据（addr、data、write）转换成信号层面的时序（时钟沿、信号赋值）。
-
-### 为什么需要单独分出这一层
-
-验证工程师需要产生各种总线操作（读、写、空闲等），这些操作的时序是固定的。如果每个 sequence 都直接操作 interface 信号，代码会大量重复且容易引入时序错误。Driver 层将这些时序逻辑集中在一个地方，sequence 只需要描述要做什么，driver 负责怎么驱动。
-
-### 工作机制
-
-Driver 在其 `run_phase` 中进入一个无限循环，每个迭代执行以下步骤：
-
-1. 从 sequencer 获取下一个 transaction：`seq_item_port.get_next_item(req)`
-2. 调用 `drive_one()` 任务，将 transaction 驱动到 interface 上
-3. 通知 sequencer 当前 item 已完成：`seq_item_port.item_done()`
-4. 如果是读操作，将 transaction（带有读回的数据）通过 `drv_ap` 分析端口发送给 scoreboard
-
-`get_next_item` 和 `item_done` 是 driver 侧的握手指令，它们分别对应 sequence 侧的 [[#九、验证场景——Sequence|start_item 和 finish_item]]。sequence 调用 `start_item` 时阻塞等待 driver 调 `get_next_item`，sequence 调 `finish_item` 时阻塞等待 driver 调 `item_done`。这两对方法共同构成 UVM 的 sequence-driver 握手机制。
-
-### 时序说明
-
-读写各需两个时钟周期，具体时序已在[[#三、总线时序]]中说明。Driver 的职责是将时序逻辑用代码实现出来。
-
-### 关键代码
-
-```systemverilog
-task drive_one(reg_transaction tr);
-
-   @(posedge vif.clk);          // 等第一个时钟沿
-vif.addr <= tr.addr;          // 把地址放上总线
-
-if (tr.write) begin           // 判断这次是写还是读
-    vif.wdata <= tr.data;      // 写：数据放总线
-    vif.write <= 1'b1;         //     写使能拉高（通知 DUT：我要写）
-    @(posedge vif.clk);        //     等一个周期让 DUT 完成写入
-    vif.write <= 1'b0;         //     写使能拉低（释放总线）
-end else begin
-    vif.write <= 1'b0;         // 读：写使能拉低（告诉 DUT 我不写）
-    @(posedge vif.clk);        //     等一个周期 DUT 把数据放上 rdata
-    tr.data = vif.rdata;       //     从总线读回数据
-end
-
-endtask
-```
-
-读操作将 `vif.rdata` 的采样值写回 `tr.data`。这意味着同一个 transaction 对象在发送给 driver 时，`data` 字段保存的是写入数据（写操作）或无关值（读操作），在 driver 完成处理后，`data` 字段变成了读回的实际数据。这种方式使得 scoreboard 能够通过一个 transaction 同时获得读操作的地址和实际读回的数据。
-
-`drive_one` 的参数 `reg_transaction tr` 在 SystemVerilog 中是一个 class 类型的句柄参数，传递的是对象的引用而不是对象的副本。读操作分支中 `tr.data = vif.rdata` 将读回的数据写入这个对象tr的date字段，sequence 在 `finish_item` 之后通过 `data = tr.data` 读取到的就是 driver 填入的结果。这种引用传递机制是 UVM 中 sequence 和 driver 之间数据返回的基础。
-
-## 七、信号采样——Monitor
-
-[⬆ 返回目录](#目录)
-
-文件位置：`verif/reg_monitor.sv`
-
-### 这一层加了什么
-
-Monitor 继承自 `uvm_monitor`，负责被动地观察 interface 上的信号变化，恢复成 transaction 后通过分析端口发送出去。它不驱动任何信号，只采样。
-
-### 为什么需要单独分出这一层
-
-验证环境需要知道 DUT 的实际行为来与预期行为对比。Monitor 是 scoreboard 的数据来源之一，它为验证环境提供了一个独立于 driver 的观察视角。driver 只知道自己发送了什么，而 monitor 能观察到 DUT 实际接收到了什么。
-
-### 写操作为主
-
-在这个项目中，monitor 只采样写操作（`vif.write` 为高时）。读操作由 driver 通过 `drv_ap` 直接汇报给 scoreboard。
-
-这样设计的原因在于 DUT 的 `rvalid` 始终为高，monitor 无法区分读操作正在进行和读操作已完成这两个状态。如果 monitor 在 `rvalid` 为高时采样 `rdata`，每个时钟周期都会触发读采样，产生大量虚假的读 transaction。
-
-将读操作的监测交给 driver 是一种务实的方案。Driver 知道自己发起了读请求，也知道读数据在下一个时钟周期稳定，因此它可以直接将结果汇报给 scoreboard。这种架构将写操作的采样（被动监测）和读操作的汇报（主动上报）分开，避免了 DUT 时序不完整带来的竞争问题。
-
-### 关键代码
-
-```systemverilog
-task run_phase(uvm_phase phase);
-    forever begin
-        @(posedge vif.clk);
-        if (vif.write) begin
-            tr = reg_transaction::type_id::create("tr");
-            tr.addr  = vif.addr;//把总线地址给tr
-            tr.data  = vif.wdata;//把总线写数据给tr
-            tr.write = 1'b1;//向dut发起写请求
-            ap.write(tr);
-        end
-    end
-endtask
-```
-
-父类的 `run_phase` 是空实现，调不调用super都可以。
-
-Monitor 在每个时钟上升沿检查 `write` 信号，如果为高则采集当前地址和数据，创建一个 transaction 并通过分析端口发送。
-
-`ap` 是 `uvm_analysis_port#(reg_transaction)` 类型的分析端口。`ap.write(tr)` 将当前 transaction 广播给所有连接到这个端口的组件。在 Env 的 `connect_phase` 中，monitor 的 `ap` 被连接到了 scoreboard 的 `mon_fifo`（一个 TLM analysis FIFO），因此 scoreboard 能接收到 monitor 发出的每一笔写 transaction。
-
-## 八、激励调度——Sequencer
+## 十、激励调度——Sequencer
 
 [⬆ 返回目录](#目录)
 
@@ -308,7 +356,7 @@ Sequencer 的父类实现了所有必要的功能，包括 get_next_item、item_
 
 `new(string name, uvm_component parent)` 的签名是 UVM 组件的规定。`name` 是组件在 UVM 树中的名字（打印日志和 config_db 路径时使用），`parent` 是父节点指针。这两个参数由 `type_id::create("sqr", this)` 在实例化时传入，验证工程师只需按这个固定格式写构造函数。
 
-## 九、验证场景——Sequence
+## 十一、验证场景——Sequence
 
 [⬆ 返回目录](#目录)
 
@@ -371,7 +419,107 @@ end
 
 `reg_boundary_seq` 测试地址空间的边界和中间位置：地址 0（最小值）、地址 255（最大值）和地址 100（典型值）。使用固定的已知数据（0xDEAD_BEEF、0x12345678、0xABCD0000），方便人工检查。
 
-## 十、结果比对——Scoreboard
+## 十二、时序驱动——Driver
+
+[⬆ 返回目录](#目录)
+
+文件位置：`verif/reg_driver.sv`
+
+### 这一层加了什么
+
+Driver 继承自 `uvm_driver #(reg_transaction)`，负责从 sequencer 接收 transaction，按照 DUT 的总线时序驱动到 interface 上。它把 transaction 层面的数据（addr、data、write）转换成信号层面的时序（时钟沿、信号赋值）。
+
+### 为什么需要单独分出这一层
+
+验证工程师需要产生各种总线操作（读、写、空闲等），这些操作的时序是固定的。如果每个 sequence 都直接操作 interface 信号，代码会大量重复且容易引入时序错误。Driver 层将这些时序逻辑集中在一个地方，sequence 只需要描述要做什么，driver 负责怎么驱动。
+
+### 工作机制
+
+Driver 在其 `run_phase` 中进入一个无限循环，每个迭代执行以下步骤：
+
+1. 从 sequencer 获取下一个 transaction：`seq_item_port.get_next_item(req)`
+2. 调用 `drive_one()` 任务，将 transaction 驱动到 interface 上
+3. 通知 sequencer 当前 item 已完成：`seq_item_port.item_done()`
+4. 如果是读操作，将 transaction（带有读回的数据）通过 `drv_ap` 分析端口发送给 scoreboard
+
+`get_next_item` 和 `item_done` 是 driver 侧的握手指令，它们分别对应 sequence 侧的 [[#十一、验证场景——Sequence|start_item 和 finish_item]]。sequence 调用 `start_item` 时阻塞等待 driver 调 `get_next_item`，sequence 调 `finish_item` 时阻塞等待 driver 调 `item_done`。这两对方法共同构成 UVM 的 sequence-driver 握手机制。
+
+### 时序说明
+
+读写各需两个时钟周期，具体时序已在[[#三、总线时序]]中说明。Driver 的职责是将时序逻辑用代码实现出来。
+
+### 关键代码
+
+```systemverilog
+task drive_one(reg_transaction tr);
+
+   @(posedge vif.clk);          // 等第一个时钟沿
+vif.addr <= tr.addr;          // 把地址放上总线
+
+if (tr.write) begin           // 判断这次是写还是读
+    vif.wdata <= tr.data;      // 写：数据放总线
+    vif.write <= 1'b1;         //     写使能拉高（通知 DUT：我要写）
+    @(posedge vif.clk);        //     等一个周期让 DUT 完成写入
+    vif.write <= 1'b0;         //     写使能拉低（释放总线）
+end else begin
+    vif.write <= 1'b0;         // 读：写使能拉低（告诉 DUT 我不写）
+    @(posedge vif.clk);        //     等一个周期 DUT 把数据放上 rdata
+    tr.data = vif.rdata;       //     从总线读回数据
+end
+
+endtask
+```
+
+读操作将 `vif.rdata` 的采样值写回 `tr.data`。这意味着同一个 transaction 对象在发送给 driver 时，`data` 字段保存的是写入数据（写操作）或无关值（读操作），在 driver 完成处理后，`data` 字段变成了读回的实际数据。这种方式使得 scoreboard 能够通过一个 transaction 同时获得读操作的地址和实际读回的数据。
+
+`drive_one` 的参数 `reg_transaction tr` 在 SystemVerilog 中是一个 class 类型的句柄参数，传递的是对象的引用而不是对象的副本。读操作分支中 `tr.data = vif.rdata` 将读回的数据写入这个对象tr的date字段，sequence 在 `finish_item` 之后通过 `data = tr.data` 读取到的就是 driver 填入的结果。这种引用传递机制是 UVM 中 sequence 和 driver 之间数据返回的基础。
+
+## 十三、信号采样——Monitor
+
+[⬆ 返回目录](#目录)
+
+文件位置：`verif/reg_monitor.sv`
+
+### 这一层加了什么
+
+Monitor 继承自 `uvm_monitor`，负责被动地观察 interface 上的信号变化，恢复成 transaction 后通过分析端口发送出去。它不驱动任何信号，只采样。
+
+### 为什么需要单独分出这一层
+
+验证环境需要知道 DUT 的实际行为来与预期行为对比。Monitor 是 scoreboard 的数据来源之一，它为验证环境提供了一个独立于 driver 的观察视角。driver 只知道自己发送了什么，而 monitor 能观察到 DUT 实际接收到了什么。
+
+### 写操作为主
+
+在这个项目中，monitor 只采样写操作（`vif.write` 为高时）。读操作由 driver 通过 `drv_ap` 直接汇报给 scoreboard。
+
+这样设计的原因在于 DUT 的 `rvalid` 始终为高，monitor 无法区分读操作正在进行和读操作已完成这两个状态。如果 monitor 在 `rvalid` 为高时采样 `rdata`，每个时钟周期都会触发读采样，产生大量虚假的读 transaction。
+
+将读操作的监测交给 driver 是一种务实的方案。Driver 知道自己发起了读请求，也知道读数据在下一个时钟周期稳定，因此它可以直接将结果汇报给 scoreboard。这种架构将写操作的采样（被动监测）和读操作的汇报（主动上报）分开，避免了 DUT 时序不完整带来的竞争问题。
+
+### 关键代码
+
+```systemverilog
+task run_phase(uvm_phase phase);
+    forever begin
+        @(posedge vif.clk);
+        if (vif.write) begin
+            tr = reg_transaction::type_id::create("tr");
+            tr.addr  = vif.addr;//把总线地址给tr
+            tr.data  = vif.wdata;//把总线写数据给tr
+            tr.write = 1'b1;//向dut发起写请求
+            ap.write(tr);
+        end
+    end
+endtask
+```
+
+父类的 `run_phase` 是空实现，调不调用super都可以。
+
+Monitor 在每个时钟上升沿检查 `write` 信号，如果为高则采集当前地址和数据，创建一个 transaction 并通过分析端口发送。
+
+`ap` 是 `uvm_analysis_port#(reg_transaction)` 类型的分析端口。`ap.write(tr)` 将当前 transaction 广播给所有连接到这个端口的组件。在 Env 的 `connect_phase` 中，monitor 的 `ap` 被连接到了 scoreboard 的 `mon_fifo`（一个 TLM analysis FIFO），因此 scoreboard 能接收到 monitor 发出的每一笔写 transaction。
+
+## 十四、结果比对——Scoreboard
 
 [⬆ 返回目录](#目录)
 
@@ -410,155 +558,6 @@ endfunction
 ```
 
 这是验证工程师查看测试是否通过的重要参考。
-
-## 十一、组件打包——Agent
-
-[⬆ 返回目录](#目录)
-
-文件位置：`verif/reg_agent.sv`
-
-### 这一层加了什么
-
-Agent 将 driver、monitor 和 sequencer 这三个与同一套信号相关的组件打包在一起。它对上层的 env 隐藏了内部组件的创建和连接细节。
-
-### 为什么需要单独分出这一层
-
-在复杂的芯片验证项目中，同一个总线协议（如 AXI、APB）可能在多个模块中使用。将 driver、monitor、sequencer 打包成 agent 后，env 可以直接实例化这个 agent 多次，而不需要为每个模块重复创建和连接这些组件。
-
-Agent 有两种工作模式。`UVM_ACTIVE` 模式包含 driver 和 sequencer（可发送激励），`UVM_PASSIVE` 模式只包含 monitor（仅观察）。对于只需要监测信号但不驱动信号的场景（比如验证环境中的从机接口），passive 模式非常有用。
-
-### 端口透传
-
-Agent 内部持有一个 `uvm_analysis_port #(reg_transaction)` 类型的 `drv_ap`，它连接了 driver 内部的 `drv_ap` 端口。这样 scoreboard 可以通过 env 访问 agent 暴露的这个端口来接收读数据。
-
-```systemverilog
-function void connect_phase(uvm_phase phase);
-    drv.seq_item_port.connect(sqr.seq_item_export);
-    drv.drv_ap.connect(drv_ap);
-endfunction
-```
-
-## 十二、环境组装——Env
-
-[⬆ 返回目录](#目录)
-
-文件位置：`verif/reg_env.sv`
-
-### 这一层加了什么
-
-Env 是整个验证环境的顶层容器，它实例化 agent 和 scoreboard，并将它们连接起来形成完整的数据通路。
-
-### 为什么需要单独分出这一层
-
-一个验证环境通常包含多个 agent（对应多个接口）和一个 scoreboard。Env 层将这些组件装配成一个整体，test 只需要实例化 env 即可获得完整的验证环境，不需要关心组件间的连接细节。
-
-### 数据路径连接
-
-```systemverilog
-function void connect_phase(uvm_phase phase);
-    // monitor 的写操作 → scoreboard 的记录通道
-    agt.mon.ap.connect(scb.mon_fifo.analysis_export);
-    // driver 的读结果 → scoreboard 的比对通道
-    agt.drv_ap.connect(scb.drv_fifo.analysis_export);
-endfunction
-```
-
-这两条连接定义了整个验证环境的数据流。Monitor 采到的写操作通过 `mon_fifo` 进入 scoreboard 的记录逻辑，driver 汇报的读结果通过 `drv_fifo` 进入 scoreboard 的比对逻辑。
-
-这里使用的 TLM（Transaction-Level Modeling）是 UVM 组件之间传输 transaction 的一套接口标准。核心模式是生产者通过 analysis port 发出 transaction，消费者通过 analysis FIFO 接收。Agent 中的 `drv_ap` 是 `uvm_analysis_port #(reg_transaction)` 类型，它在 connect_phase 中被连接到 driver 内部的同名端口，然后通过 env 被连接到 scoreboard 的 `drv_fifo`。
-
-## 十三、测试用例——Test
-
-[⬆ 返回目录](#目录)
-
-文件位置：`verif/reg_base_test.sv`
-
-### 这一层加了什么
-
-Test 是 UVM 验证层次的顶层组件，继承自 `uvm_test`。它负责创建 env、控制仿真的开始和结束、以及启动 sequence。
-
-### 为什么需要单独分出这一层
-
-不同的测试场景（写后读测试、边界测试、随机测试等）共享同一个 env 和 agent，但使用不同的 sequence 和配置。通过继承一个基类 test 并在子类中更换 sequence，可以在不修改 env 的情况下运行不同的测试。
-
-### Objection 机制
-
-UVM 的 objection 机制用于控制仿真何时结束。当 test 的 `run_phase` 中 raise objection 时，仿真器知道当前还有未完成的工作。当 sequence 执行完毕，test drop objection 后，仿真器确认所有工作已完成，结束 run phase 进入后续的检查阶段。
-
-```systemverilog
-task run_phase(uvm_phase phase);
-    phase.raise_objection(this);
-    seq.start(env.agt.sqr);
-    phase.drop_objection(this);
-endtask
-```
-
-`seq.start(env.agt.sqr)` 中的 `seq` 是一个 sequence 对象（如 `reg_write_read_seq`），`start` 是 UVM 内建方法，将其挂载到指定的 sequencer 上执行。`env.agt.sqr` 是层级路径：env → agent → sequencer。Sequence 必须挂载到 sequencer 才能通过 `start_item/finish_item` 与 driver 握手。
-
-### 测试用例组织
-
-```systemverilog
-// 基类 test：创建 env
-class reg_base_test extends uvm_test;
-    reg_env env;
-endclass
-
-// 写后读测试：使用 reg_write_read_seq
-class reg_write_read_test extends reg_base_test;
-    // run_phase 中启动 reg_write_read_seq
-endclass
-
-// 边界测试：使用 reg_boundary_seq
-class reg_boundary_test extends reg_base_test;
-    // run_phase 中启动 reg_boundary_seq
-endclass
-```
-
-## 十四、仿真顶层——Test Top
-
-[⬆ 返回目录](#目录)
-
-文件位置：`tb/test_top.sv`
-
-### 这一层加了什么
-
-Test top 是一个 Verilog module（非 UVM 组件），是整个仿真的入口。它生成时钟和复位信号，实例化 DUT 和 interface，将 interface 通过 `uvm_config_db` 传递给 UVM 环境，最后调用 `run_test()` 启动 UVM。
-
-### 为什么需要单独分出这一层
-
-UVM 是一个基于 SystemVerilog 的类库，它无法生成硬件信号（时钟、复位）或实例化 DUT。这些硬件级的操作必须在 module 中完成。Test top 是连接硬件世界和 UVM 软件世界的桥梁。
-
-### 时钟与复位
-
-时钟周期设为 100MHz（每个 `#5` 切换一次）。`rst_n` 在仿真开始时保持低电平 5 个时钟周期，确保 DUT 内部状态正确复位后再拉高。
-
-```systemverilog
-bit clk;
-initial forever #5 clk = ~clk;  // 100MHz
-
-initial begin
-    rst_n = 0;
-    repeat (5) @(posedge clk);
-    rst_n = 1;
-end
-```
-
-### config_db 设置
-
-`uvm_config_db` 是 UVM 中组件间共享配置的全局数据库。这里将 `virtual reg_if` 指针存入 config_db，供 UVM 组件的 `build_phase` 中使用 `::get` 取出。
-
-```systemverilog
-uvm_config_db #(virtual reg_if)::set(null, "uvm_test_top.env.agt.*", "vif", vif);
-```
-
-逐段拆解：`uvm_config_db` 是全局数据库；`#(virtual reg_if)` 指定存储的类型是虚接口指针；`::set` 表示写入（`::get` 表示读出）；`null` 是不限上下文；`"uvm_test_top.env.agt.*"` 是路径字符串，`*` 通配符匹配 agent 下所有子组件（driver 和 monitor 都能看到）；`"vif"` 是键名，使用 `::get` 时传同一个键就能取到；最后的 `vif` 是要存入的值。
-
-Driver 中取出的代码：
-```systemverilog
-if (!uvm_config_db #(virtual reg_if)::get(this, "", "vif", vif))
-    `uvm_error("DRV", "获取 vif 失败")
-```
-`::get` 的路径从 `this`（driver 自身）的层次自动推导，因此第二个参数传空字符串即可。
 
 ## 十五、编译脚本——Makefile
 
