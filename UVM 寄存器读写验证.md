@@ -324,9 +324,9 @@ task read_reg(input bit [7:0] addr, output bit [31:0] data);
     tr = reg_transaction::type_id::create("tr");
     start_item(tr);
     tr.addr  = addr;//把地址传给tr
-    tr.write = 0;
-    finish_item(tr);
-    data = tr.data;
+    tr.write = 0;//发起读请求(=写拉低)，driver的逻辑是判断tr.write
+    finish_item(tr);//结束读操作
+    data = tr.data;//把读到的数据输出给data
 endtask
 
 // 写操作封装
