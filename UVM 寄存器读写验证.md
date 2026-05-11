@@ -673,7 +673,7 @@ endclass
 
 **细节/注意的点**
 
-- **可以直接用基类吗？** 可以。在 agent 里直接声明 `uvm_sequencer #(reg_transaction) sequencer;` 然后 `new("sequencer", this)` 也完全能跑。
+- **可以直接用基类uvm_sequencer吗？** 可以。在 agent 里直接声明 `uvm_sequencer #(reg_transaction) sequencer;` 然后 `new("sequencer", this)` 也完全能跑。
 - 定义一个空壳再继承的两层意义：一是通过 `type_id::create` 获得 factory override 能力（以后可以 override 成别的类而不改 agent 代码）；二是预留扩展入口——复杂项目可能在 sequencer 里加排程策略或回调函数。
 - `new(string name, uvm_component parent)` 的签名是所有 UVM 组件的固定格式。`name` 是组件在 UVM 树中的名字（打印日志和 config_db 路径时使用），`parent` 是父节点指针。这两个参数由 `type_id::create("sqr", this)` 在实例化时传入。
 ## 九、验证场景——Sequence
@@ -776,7 +776,7 @@ endclass
 **语法/用法**
 
 ```systemverilog
-class my_seq extends uvm_sequence #(交易类型);
+class my_seq extends uvm_sequence #(数据);
     `uvm_object_utils(my_seq)   // 注意：是 object_utils，不是 component_utils
     
     task body();
@@ -789,7 +789,7 @@ endclass
 
 ```systemverilog
 seq = my_seq::type_id::create("seq");
-seq.start(sequencer_句柄);  // 把 sequence 挂到 sequencer 上执行
+seq.start(sequencer（句柄）);  // 把 sequence 挂到 sequencer 上执行
 ```
 
 **细节/注意的点**
