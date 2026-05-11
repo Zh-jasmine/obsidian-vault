@@ -805,6 +805,8 @@ seq.start(sequencer（句柄）);  // 把 sequence 挂到 sequencer 上执行
 
 它们是 **`uvm_sequence` 基类的内建 task**，不是哪个组件的函数。sequence 在 `body()` 里直接调用，不需要加任何前缀。
 
+**作用：把一笔 transaction 从 sequence 发送到 driver 的完整握手。** 两步分开的原因——`start_item` 先获取发送权（告诉 sequencer "我要发了"），`finish_item` 等到 driver 实际处理完才返回（告诉 sequence "可以造下一笔了"）。两步之间留有 grab 区，允许在发出前修改或随机化 transaction。
+
 **语法/用法**
 
 ```systemverilog
