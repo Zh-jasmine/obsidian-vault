@@ -2,7 +2,7 @@
 tags: #AMBA #AXI #协议
 ---
 
-# AXI4-Lite 协议
+# AXI4-Lite 协议 （Advanced eXtensible Interface）
 
 AXI4-Lite 是 ARM 定义的 AMBA 总线协议之一。这套协议规定了一套标准的信号和时序规则，让芯片内部的主设备（如 CPU）和从设备（如 SPI 控制器）之间可以有序地交换数据。
 
