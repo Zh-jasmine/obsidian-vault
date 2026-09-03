@@ -188,8 +188,14 @@
   },
   "active": "e6d861b98b860c71",
   "lastOpenFiles": [
-    "AXI2SPI/AXI4-Lite 协议.md",
+    "未命名.md",
+    "Pasted image 20260812070733.png",
+    "未命名",
+    "未命名/Pasted image 20260812070702 2.png",
+    "未命名/Pasted image 20260812070702 1.png",
+    "未命名/Pasted image 20260812070702.png",
     "AXI2SPI/Debug 思路.md",
+    "AXI2SPI/AXI4-Lite 协议.md",
     "IC verification/Verdi 常用操作.md",
     "IC verification/Linux 常用指令.md",
     "AXI Full Crossbar/AXI Full Crossbar UVM/01 axi_crossbar 顶层参数和端口.md",
@@ -198,7 +204,6 @@
     "AXI2SPI/VPLAN.md",
     "AXI2SPI/UVM RAL.md",
     "AXI2SPI/未命名.md",
-    "未命名",
     "AXI Full Crossbar/AXI Full Crossbar UVM/03 axi_if.md",
     "code/AXI_Lite2SPI/UVMTB/test/spi/spi_word_len_test.sv",
     "code/AXI_Lite2SPI/UVMTB/test/spi/spi_sck_speed_test.sv",
@@ -222,17 +227,11 @@
     "IC verification/语法库/SV/fork_join.md",
     "IC verification/skill.md",
     "IC verification/eda安装文档.md",
-    "AXI Full Crossbar/AXI Full Crossbar UVM/06 axi_monitor.md",
-    "AXI Full Crossbar/AXI Full Crossbar UVM/05 axi_slave_driver.md",
     "AXI4 Full 协议/assets/8.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/9.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/10.jpg",
     "AXI4 Full 协议/assets/6.png",
     "AXI4 Full 协议/assets/6.jpg",
-    "AXI Full Crossbar/AXI4 Full 协议/assets/5.jpg",
-    "AXI Full Crossbar/AXI4 Full 协议/assets/4.jpg",
-    "AXI Full Crossbar/AXI4 Full 协议/assets/3.jpg",
-    "AXI Full Crossbar/AXI4 Full 协议/assets/2.jpg",
-    "AXI Full Crossbar/AXI4 Full 协议/assets/1.jpg"
+    "AXI Full Crossbar/AXI4 Full 协议/assets/5.jpg"
   ]
 }
