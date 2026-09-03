@@ -53,7 +53,7 @@ R  返回多个读数据 beat
 
 关键点：`AxLEN/AxSIZE/AxBURST` 都在地址通道上；真正的数据在 `W` 或 `R` 通道上。
 
-## `AxLEN
+## AxLEN
 
 `AxLEN` 表示 burst length，但它是编码值，不是直接的 beat 数。
 

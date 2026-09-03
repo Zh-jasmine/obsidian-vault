@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "AXI2SPI/Debug 思路.md",
-                "mode": "source",
+                "file": "AXI Full Crossbar/AXI4 Full 协议/08 验证视角.md",
+                "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Debug 思路"
+              "title": "08 验证视角"
             }
           }
         ]
@@ -188,13 +188,21 @@
   },
   "active": "e6d861b98b860c71",
   "lastOpenFiles": [
+    "AXI Full Crossbar/AXI4 Full 协议/07 ID outstanding ordering.md",
+    "AXI Full Crossbar/AXI4 Full 协议/06 WSTRB narrow unaligned.md",
+    "AXI Full Crossbar/AXI4 Full 协议/05 Burst AxLEN AxSIZE AxBURST.md",
+    "AXI Full Crossbar/AXI4 Full 协议/04 读事务 AR R.md",
+    "AXI Full Crossbar/AXI4 Full 协议/03 写事务 AW W B.md",
+    "AXI Full Crossbar/AXI4 Full 协议/02 VALID READY 握手.md",
+    "AXI Full Crossbar/AXI4 Full 协议/01 五通道结构.md",
+    "AXI Full Crossbar/AXI4 Full 协议/00 AXI4 Full.md",
+    "AXI2SPI/Debug 思路.md",
     "未命名.md",
     "Pasted image 20260812070733.png",
     "未命名",
     "未命名/Pasted image 20260812070702 2.png",
     "未命名/Pasted image 20260812070702 1.png",
     "未命名/Pasted image 20260812070702.png",
-    "AXI2SPI/Debug 思路.md",
     "AXI2SPI/AXI4-Lite 协议.md",
     "IC verification/Verdi 常用操作.md",
     "IC verification/Linux 常用指令.md",
@@ -220,13 +228,6 @@
     "IC verification/SV&UVM.md",
     "IC verification/语法库/SV/constraint.md",
     "IC verification/语法库/UVM/sequence_driver.md",
-    "IC verification/语法库/UVM/factory.md",
-    "IC verification/语法库/UVM/config_db.md",
-    "IC verification/语法库/SV/mailbox.md",
-    "IC verification/语法库/SV/interface.md",
-    "IC verification/语法库/SV/fork_join.md",
-    "IC verification/skill.md",
-    "IC verification/eda安装文档.md",
     "AXI4 Full 协议/assets/8.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/9.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/10.jpg",
