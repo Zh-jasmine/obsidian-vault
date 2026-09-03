@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "AXI Full Crossbar/AXI4 Full 协议/08 验证视角.md",
+                "file": "AXI2SPI/项目梳理.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "08 验证视角"
+              "title": "项目梳理"
             }
           }
         ]
@@ -188,6 +188,7 @@
   },
   "active": "e6d861b98b860c71",
   "lastOpenFiles": [
+    "AXI Full Crossbar/AXI4 Full 协议/08 验证视角.md",
     "AXI Full Crossbar/AXI4 Full 协议/07 ID outstanding ordering.md",
     "AXI Full Crossbar/AXI4 Full 协议/06 WSTRB narrow unaligned.md",
     "AXI Full Crossbar/AXI4 Full 协议/05 Burst AxLEN AxSIZE AxBURST.md",
@@ -227,7 +228,6 @@
     "AXI Full Crossbar UVM/AXI4 Full 协议/未命名.md",
     "IC verification/SV&UVM.md",
     "IC verification/语法库/SV/constraint.md",
-    "IC verification/语法库/UVM/sequence_driver.md",
     "AXI4 Full 协议/assets/8.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/9.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/10.jpg",
