@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "AXI2SPI/项目梳理.md",
+                "file": "AXI Full Crossbar/AXI4 Full 协议/08 验证视角.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "项目梳理"
+              "title": "08 验证视角"
             }
           }
         ]
@@ -188,6 +188,15 @@
   },
   "active": "e6d861b98b860c71",
   "lastOpenFiles": [
+    "AXI2SPI/Debug 思路.md",
+    "AXI2SPI/VPLAN.md",
+    "AXI Full Crossbar/AXI Full Crossbar UVM/05 axi_slave_driver.md",
+    "AXI Full Crossbar/AXI Full Crossbar UVM/04 axi_master_driver.md",
+    "AXI Full Crossbar/AXI Full Crossbar UVM/06 axi_monitor.md",
+    "AXI Full Crossbar/AXI Full Crossbar UVM/01 axi_crossbar 顶层参数和端口.md",
+    "AXI Full Crossbar/AXI Full Crossbar UVM/02 wrapper 地址映射与大向量拆包.md",
+    "AXI Full Crossbar/AXI Full Crossbar UVM/00 总览与数据流.md",
+    "AXI2SPI/项目梳理.md",
     "AXI Full Crossbar/AXI4 Full 协议/08 验证视角.md",
     "AXI Full Crossbar/AXI4 Full 协议/07 ID outstanding ordering.md",
     "AXI Full Crossbar/AXI4 Full 协议/06 WSTRB narrow unaligned.md",
@@ -197,7 +206,6 @@
     "AXI Full Crossbar/AXI4 Full 协议/02 VALID READY 握手.md",
     "AXI Full Crossbar/AXI4 Full 协议/01 五通道结构.md",
     "AXI Full Crossbar/AXI4 Full 协议/00 AXI4 Full.md",
-    "AXI2SPI/Debug 思路.md",
     "未命名.md",
     "Pasted image 20260812070733.png",
     "未命名",
@@ -207,10 +215,7 @@
     "AXI2SPI/AXI4-Lite 协议.md",
     "IC verification/Verdi 常用操作.md",
     "IC verification/Linux 常用指令.md",
-    "AXI Full Crossbar/AXI Full Crossbar UVM/01 axi_crossbar 顶层参数和端口.md",
-    "AXI2SPI/项目梳理.md",
     "AXI Full Crossbar/AXI Full Crossbar UVM/07 axi_scoreboard.md",
-    "AXI2SPI/VPLAN.md",
     "AXI2SPI/UVM RAL.md",
     "AXI2SPI/未命名.md",
     "AXI Full Crossbar/AXI Full Crossbar UVM/03 axi_if.md",
@@ -223,11 +228,6 @@
     "code/AXI_Lite2SPI/UVMTB/test/spi/spi_data_pattern_tests.sv",
     "code/AXI_Lite2SPI/UVMTB/test/spi/spi_cs_sck_test.sv",
     "code/AXI_Lite2SPI/UVMTB/test/spi/spi_burst_test.sv",
-    "code/AXI_Lite2SPI/VPLAN.md",
-    "AXI Full Crossbar/AXI Full Crossbar UVM/04 axi_master_driver.md",
-    "AXI Full Crossbar UVM/AXI4 Full 协议/未命名.md",
-    "IC verification/SV&UVM.md",
-    "IC verification/语法库/SV/constraint.md",
     "AXI4 Full 协议/assets/8.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/9.jpg",
     "AXI Full Crossbar/AXI4 Full 协议/assets/10.jpg",
